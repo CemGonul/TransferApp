@@ -1,10 +1,14 @@
 package com.transferapp.authservice.controller;
 
 import com.transferapp.authservice.config.SecurityConfig;
+import com.transferapp.authservice.dto.LoginRequest;
+import com.transferapp.authservice.dto.LoginResponse;
 import com.transferapp.authservice.dto.RegisterRequest;
 import com.transferapp.authservice.dto.RegisterResponse;
 import com.transferapp.authservice.exception.DuplicateEmailException;
 import com.transferapp.authservice.exception.GlobalExceptionHandler;
+import com.transferapp.authservice.repository.UserAuthRepository;
+import com.transferapp.authservice.service.LoginService;
 import com.transferapp.authservice.service.UserAuthService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,6 +16,8 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -35,6 +41,82 @@ class UserAuthControllerTest {
 
     @MockitoBean
     private UserAuthService userAuthService;
+
+    @MockitoBean
+    private UserAuthRepository userAuthRepository;
+
+    @MockitoBean
+    private LoginService loginService;
+
+    @MockitoBean
+    private JwtDecoder jwtDecoder;
+
+    @Test
+    void loginReturnsAccessToken() throws Exception {
+        LoginRequest request = new LoginRequest("user@example.com", "strongPassword12");
+        when(loginService.login(request))
+                .thenReturn(new LoginResponse("signed.jwt.token", "Bearer", 900));
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validRequestJson("user@example.com", "strongPassword12")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").value("signed.jwt.token"))
+                .andExpect(jsonPath("$.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.expiresIn").value(900));
+
+        verify(loginService).login(request);
+    }
+
+    @Test
+    void loginReturnsUnauthorizedForInvalidCredentials() throws Exception {
+        when(loginService.login(any(LoginRequest.class)))
+                .thenThrow(new BadCredentialsException("Internal authentication detail"));
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validRequestJson("user@example.com", "wrongPassword12")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.errorCode").value("UNAUTHORIZED"))
+                .andExpect(jsonPath("$.message").value("Invalid email or password"))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        containsString("Internal authentication detail"))));
+    }
+
+    @Test
+    void loginRejectsInvalidEmailBeforeCallingService() throws Exception {
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validRequestJson("invalid-email", "strongPassword12")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"));
+
+        verifyNoInteractions(loginService);
+    }
+
+    @Test
+    void loginRejectsEmailLongerThan254Characters() throws Exception {
+        String oversizedEmail = "a".repeat(250) + "@x.com";
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validRequestJson(oversizedEmail, "strongPassword12")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"));
+
+        verifyNoInteractions(loginService);
+    }
+
+    @Test
+    void loginRejectsPasswordLongerThan24Characters() throws Exception {
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validRequestJson("user@example.com", "a".repeat(25))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"));
+
+        verifyNoInteractions(loginService);
+    }
 
     @Test
     void registerReturnsCreatedResponseWithoutPassword() throws Exception {
