@@ -1,7 +1,7 @@
 services:
   auth-db:
     image: postgres:17-alpine
-    container_name: miniwise-auth-db
+    container_name: transferapp-auth-db
     environment:
       POSTGRES_DB: ${AUTH_DB_NAME}
       POSTGRES_USER: ${AUTH_DB_USERNAME}
@@ -18,7 +18,7 @@ services:
 
   user-db:
     image: postgres:17-alpine
-    container_name: miniwise-user-db
+    container_name: transferapp-user-db
     environment:
       POSTGRES_DB: ${USER_DB_NAME}
       POSTGRES_USER: ${USER_DB_USERNAME}
@@ -35,7 +35,7 @@ services:
 
   transfer-db:
     image: postgres:17-alpine
-    container_name: miniwise-transfer-db
+    container_name: transferapp-transfer-db
     environment:
       POSTGRES_DB: ${TRANSFER_DB_NAME}
       POSTGRES_USER: ${TRANSFER_DB_USERNAME}
@@ -52,7 +52,7 @@ services:
 
   redis:
     image: redis:8.10.1-alpine
-    container_name: miniwise-redis
+    container_name: transferapp-redis
     ports:
       - "127.0.0.1:6379:6379"
     volumes:
@@ -65,7 +65,7 @@ services:
 
   kafka:
     image: apache/kafka:4.2.0
-    container_name: miniwise-kafka
+    container_name: transferapp-kafka
     ports:
       - "127.0.0.1:9092:9092"
     healthcheck:

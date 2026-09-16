@@ -45,8 +45,8 @@ class JwtServiceTest {
         properties = new JwtProperties(
                 pemResource("PRIVATE KEY", ((RSAPrivateKey) keyPair.getPrivate()).getEncoded()),
                 pemResource("PUBLIC KEY", ((RSAPublicKey) keyPair.getPublic()).getEncoded()),
-                "https://miniwise.local/auth-service",
-                "miniwise-api",
+                "https://transferapp.local/auth-service",
+                "transferapp-api",
                 Duration.ofMinutes(15)
         );
 
@@ -68,9 +68,9 @@ class JwtServiceTest {
 
         assertAll(
                 () -> assertEquals("RS256", decoded.getHeaders().get("alg")),
-                () -> assertEquals("https://miniwise.local/auth-service", decoded.getIssuer().toString()),
+                () -> assertEquals("https://transferapp.local/auth-service", decoded.getIssuer().toString()),
                 () -> assertEquals(userId.toString(), decoded.getSubject()),
-                () -> assertEquals(List.of("miniwise-api"), decoded.getAudience()),
+                () -> assertEquals(List.of("transferapp-api"), decoded.getAudience()),
                 () -> assertEquals("user@example.com", decoded.getClaimAsString("email")),
                 () -> assertEquals("USER", decoded.getClaimAsString("role")),
                 () -> assertEquals(900L, Duration.between(
