@@ -1,5 +1,6 @@
 package com.transferapp.authservice.service;
 
+import com.transferapp.authservice.client.UserProfileClient;
 import com.transferapp.authservice.dto.RegisterRequest;
 import com.transferapp.authservice.dto.RegisterResponse;
 import com.transferapp.authservice.entity.UserAuth;
@@ -17,26 +18,32 @@ public class UserAuthService {
 
     private final UserAuthRepository userAuthRepository;
     private final PasswordEncoder passwordEncoder;
+    private final UserProfileClient userProfileClient;
 
     public RegisterResponse register(RegisterRequest request) {
+
         String normalizedEmail = normalizeEmail(request.email());
 
         if (userAuthRepository.existsByEmail(normalizedEmail)) {
-            throw new DuplicateEmailException("Email already in use");
+            throw new DuplicateEmailException("Email is already registered");
         }
-        String hashedPassword = passwordEncoder.encode(request.password());
+
+        String hashedPassword =
+                passwordEncoder.encode(request.password());
 
         UserAuth user = new UserAuth(
                 normalizedEmail,
                 hashedPassword
         );
+
         UserAuth savedUser = userAuthRepository.save(user);
+
+        userProfileClient.ensureProfileExists(savedUser.getId());
 
         return new RegisterResponse(
                 savedUser.getEmail(),
-                "Registration successful"
+                "User registered successfully"
         );
-
     }
 
     private String normalizeEmail(String email) {

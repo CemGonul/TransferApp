@@ -11,6 +11,7 @@ public record JwtProperties(
         Resource publicKey,
         String issuer,
         String audience,
-        Duration expiration
+        Duration expiration,
+        Duration serviceTokenExpiration
 ) {
 }

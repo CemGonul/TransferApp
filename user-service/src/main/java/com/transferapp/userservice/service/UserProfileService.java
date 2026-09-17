@@ -22,15 +22,13 @@ public class UserProfileService {
     private final UserProfileRepository userProfileRepository;
 
     @Transactional
-    public void createProfile(UUID userId){
+    public boolean ensureProfileExists(UUID userId){
         if(userProfileRepository.existsById(userId)){
-            throw new UserProfileAlreadyExistsException(
-                    "User profile already exists: " + userId
-            );
+            return false;
         }
         UserProfile profile=new UserProfile(userId);
-
         userProfileRepository.save(profile);
+        return true;
 
     }
     @Transactional(readOnly = true)

@@ -7,6 +7,7 @@ import com.transferapp.authservice.dto.RegisterRequest;
 import com.transferapp.authservice.dto.RegisterResponse;
 import com.transferapp.authservice.exception.DuplicateEmailException;
 import com.transferapp.authservice.exception.GlobalExceptionHandler;
+import com.transferapp.authservice.exception.UserProfileProvisioningException;
 import com.transferapp.authservice.repository.UserAuthRepository;
 import com.transferapp.authservice.service.LoginService;
 import com.transferapp.authservice.service.UserAuthService;
@@ -122,7 +123,7 @@ class UserAuthControllerTest {
     void registerReturnsCreatedResponseWithoutPassword() throws Exception {
         RegisterRequest request = new RegisterRequest("user@example.com", "strongPassword12");
         when(userAuthService.register(request))
-                .thenReturn(new RegisterResponse("user@example.com", "Registration successful"));
+                .thenReturn(new RegisterResponse("user@example.com", "User registered successfully"));
 
         mockMvc.perform(post("/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -135,7 +136,7 @@ class UserAuthControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.email").value("user@example.com"))
-                .andExpect(jsonPath("$.message").value("Registration successful"))
+                .andExpect(jsonPath("$.message").value("User registered successfully"))
                 .andExpect(jsonPath("$.password").doesNotExist());
 
         verify(userAuthService).register(request);
@@ -271,6 +272,26 @@ class UserAuthControllerTest {
                 .andExpect(jsonPath("$.errorCode").value("INTERNAL_SERVER_ERROR"))
                 .andExpect(jsonPath("$.message").value("An unexpected error occurred"))
                 .andExpect(content().string(org.hamcrest.Matchers.not(containsString("Sensitive internal detail"))));
+    }
+
+    @Test
+    void registerReturnsServiceUnavailableWithoutExposingProvisioningDetails() throws Exception {
+        when(userAuthService.register(any(RegisterRequest.class)))
+                .thenThrow(new UserProfileProvisioningException(
+                        "Connection refused: sensitive downstream detail"
+                ));
+
+        mockMvc.perform(post("/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validRequestJson("user@example.com", "strongPassword12")))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.status").value(503))
+                .andExpect(jsonPath("$.errorCode")
+                        .value("USER_PROFILE_PROVISIONING_FAILED"))
+                .andExpect(jsonPath("$.message")
+                        .value("User profile service is temporarily unavailable"))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        containsString("Connection refused"))));
     }
 
     private String validRequestJson(String email, String password) {

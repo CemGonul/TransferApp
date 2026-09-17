@@ -47,7 +47,8 @@ class JwtServiceTest {
                 pemResource("PUBLIC KEY", ((RSAPublicKey) keyPair.getPublic()).getEncoded()),
                 "https://transferapp.local/auth-service",
                 "transferapp-api",
-                Duration.ofMinutes(15)
+                Duration.ofMinutes(15),
+                Duration.ofMinutes(2)
         );
 
         JwtConfig config = new JwtConfig(properties);
@@ -92,6 +93,21 @@ class JwtServiceTest {
         String token = encoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
 
         assertThrows(JwtValidationException.class, () -> decoder.decode(token));
+    }
+
+    @Test
+    void generatedServiceTokenContainsServiceIdentityAndConfiguredExpiration() {
+        JwtService jwtService = new JwtService(encoder, properties);
+
+        var decoded = decoder.decode(jwtService.generateServiceToken());
+
+        assertAll(
+                () -> assertEquals("auth-service", decoded.getSubject()),
+                () -> assertEquals("SERVICE", decoded.getClaimAsString("role")),
+                () -> assertEquals(List.of("transferapp-api"), decoded.getAudience()),
+                () -> assertEquals(120L, Duration.between(
+                        decoded.getIssuedAt(), decoded.getExpiresAt()).toSeconds())
+        );
     }
 
     private ByteArrayResource pemResource(String type, byte[] encoded) {

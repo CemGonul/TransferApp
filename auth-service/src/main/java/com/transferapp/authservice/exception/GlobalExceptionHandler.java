@@ -128,6 +128,26 @@ public class GlobalExceptionHandler {
                 .body(error);
     }
 
+    @ExceptionHandler(UserProfileProvisioningException.class)
+    public ResponseEntity<ApiError> handleUserProfileProvisioning(
+            UserProfileProvisioningException exception,
+            HttpServletRequest request) {
+
+        HttpStatus status = HttpStatus.SERVICE_UNAVAILABLE;
+
+        ApiError error = new ApiError(
+                Instant.now(),
+                status.value(),
+                "USER_PROFILE_PROVISIONING_FAILED",
+                "User profile service is temporarily unavailable",
+                request.getRequestURI()
+        );
+
+        return ResponseEntity
+                .status(status)
+                .body(error);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleGenericException(
             Exception exception,

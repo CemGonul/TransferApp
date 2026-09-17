@@ -43,4 +43,23 @@ public class JwtService {
     public long getExpirationSeconds() {
         return jwtProperties.expiration().toSeconds();
     }
+
+    public String generateServiceToken() {
+
+        Instant now = Instant.now();
+        Instant expiresAt = now.plus(jwtProperties.serviceTokenExpiration());
+
+        JwtClaimsSet claims = JwtClaimsSet.builder()
+                .issuer(jwtProperties.issuer())
+                .subject("auth-service")
+                .audience(List.of(jwtProperties.audience()))
+                .issuedAt(now)
+                .expiresAt(expiresAt)
+                .claim("role", "SERVICE")
+                .build();
+
+        return jwtEncoder
+                .encode(JwtEncoderParameters.from(claims))
+                .getTokenValue();
+    }
 }

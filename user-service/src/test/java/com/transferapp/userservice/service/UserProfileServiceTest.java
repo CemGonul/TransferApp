@@ -3,7 +3,6 @@ package com.transferapp.userservice.service;
 import com.transferapp.userservice.dto.UpdateUserProfileRequest;
 import com.transferapp.userservice.entity.UserProfile;
 import com.transferapp.userservice.enums.ProfileStatus;
-import com.transferapp.userservice.exception.UserProfileAlreadyExistsException;
 import com.transferapp.userservice.exception.UserProfileNotFoundException;
 import com.transferapp.userservice.repository.UserProfileRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,11 +42,11 @@ class UserProfileServiceTest {
     }
 
     @Test
-    void createProfileCreatesIncompleteProfile() {
+    void ensureProfileExistsCreatesIncompleteProfile() {
         UUID userId = UUID.randomUUID();
         when(userProfileRepository.existsById(userId)).thenReturn(false);
 
-        userProfileService.createProfile(userId);
+        boolean created = userProfileService.ensureProfileExists(userId);
 
         ArgumentCaptor<UserProfile> profileCaptor =
                 ArgumentCaptor.forClass(UserProfile.class);
@@ -55,6 +54,7 @@ class UserProfileServiceTest {
         UserProfile savedProfile = profileCaptor.getValue();
 
         assertAll(
+                () -> assertTrue(created),
                 () -> assertEquals(userId, savedProfile.getUserId()),
                 () -> assertEquals(ProfileStatus.INCOMPLETE, savedProfile.getStatus()),
                 () -> assertNull(savedProfile.getFirstName()),
@@ -67,16 +67,13 @@ class UserProfileServiceTest {
     }
 
     @Test
-    void createProfileRejectsExistingProfile() {
+    void ensureProfileExistsReturnsFalseWithoutSavingWhenProfileExists() {
         UUID userId = UUID.randomUUID();
         when(userProfileRepository.existsById(userId)).thenReturn(true);
 
-        UserProfileAlreadyExistsException exception = assertThrows(
-                UserProfileAlreadyExistsException.class,
-                () -> userProfileService.createProfile(userId)
-        );
+        boolean created = userProfileService.ensureProfileExists(userId);
 
-        assertTrue(exception.getMessage().contains(userId.toString()));
+        assertFalse(created);
         verify(userProfileRepository, never()).save(any(UserProfile.class));
     }
 
