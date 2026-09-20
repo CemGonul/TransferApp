@@ -18,7 +18,9 @@ public class RestClientConfig {
     public RestClient userServiceRestClient() {
         SimpleClientHttpRequestFactory requestFactory =
                 new SimpleClientHttpRequestFactory();
+
         requestFactory.setConnectTimeout(userServiceProperties.connectTimeout());
+
         requestFactory.setReadTimeout(userServiceProperties.readTimeout());
 
         return RestClient.builder()
