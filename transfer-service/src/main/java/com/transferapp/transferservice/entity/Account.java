@@ -2,7 +2,7 @@ package com.transferapp.transferservice.entity;
 
 
 import com.transferapp.transferservice.enums.Currency;
-import jakarta.annotation.Nullable;
+import com.transferapp.transferservice.exception.InsufficientBalanceException;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -33,13 +33,13 @@ import java.util.UUID;
 public class Account {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     @Column(name="user_id",nullable = false)
     private UUID userId;
 
-    @Column(name="account_number",nullable = false)
+    @Column(name="account_number",nullable = false,length = 13)
     private String accountNumber;
 
     @Enumerated(EnumType.STRING)
@@ -63,6 +63,34 @@ public class Account {
         this.accountNumber=accountNumber;
         this.currency=currency;
         this.balance=BigDecimal.ZERO;
+    }
+
+    public void deposit(BigDecimal amount) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Deposit amount must be greater than zero");
+        }
+
+        increaseBalance(amount);
+    }
+
+    public void increaseBalance(BigDecimal amount) {
+        this.balance = this.balance.add(amount);
+    }
+
+    public void decreaseBalance(BigDecimal amount) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException(
+                    "Amount must be greater than zero"
+            );
+        }
+
+        if (this.balance.compareTo(amount) < 0) {
+            throw new InsufficientBalanceException(
+                    "Insufficient balance"
+            );
+        }
+
+        this.balance = this.balance.subtract(amount);
     }
 
 
