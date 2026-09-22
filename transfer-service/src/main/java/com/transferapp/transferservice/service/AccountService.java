@@ -79,8 +79,12 @@ public class AccountService {
             UUID accountId,
             DepositAccountRequest request,
             UUID userId){
-        Account account=accountRepository.findById(accountId)
-                .orElseThrow(()->new AccountNotFoundException("Account not found"));
+
+        Account account = accountRepository
+                .findByIdForUpdate(accountId)
+                .orElseThrow(() ->
+                        new AccountNotFoundException("Account not found")
+                );
 
         if(!account.getUserId().equals(userId)){
             throw new AccountAccessDeniedException("You do not have acces to this account");
