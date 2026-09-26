@@ -199,4 +199,42 @@ public class GlobalExceptionHandler {
                 .status(status)
                 .body(error);
     }
+    @ExceptionHandler(TransferNotFoundException.class)
+    public ResponseEntity<ApiError> handleTransferNotFound(
+            TransferNotFoundException exception,
+            HttpServletRequest request) {
+
+        HttpStatus status = HttpStatus.NOT_FOUND;
+
+        ApiError error = new ApiError(
+                Instant.now(),
+                status.value(),
+                "TRANSFER_NOT_FOUND",
+                exception.getMessage(),
+                request.getRequestURI()
+        );
+
+        return ResponseEntity
+                .status(status)
+                .body(error);
+    }
+    @ExceptionHandler(TransferAccessDeniedException.class)
+    public ResponseEntity<ApiError> handleTransferAccessDenied(
+            TransferAccessDeniedException exception,
+            HttpServletRequest request) {
+
+        HttpStatus status = HttpStatus.FORBIDDEN;
+
+        ApiError error = new ApiError(
+                Instant.now(),
+                status.value(),
+                "FORBIDDEN",
+                exception.getMessage(),
+                request.getRequestURI()
+        );
+
+        return ResponseEntity
+                .status(status)
+                .body(error);
+    }
 }

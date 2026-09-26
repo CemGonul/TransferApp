@@ -4,16 +4,18 @@ import com.transferapp.transferservice.dto.CreateTransferRequest;
 import com.transferapp.transferservice.dto.TransferResponse;
 import com.transferapp.transferservice.entity.Account;
 import com.transferapp.transferservice.entity.Transfer;
-import com.transferapp.transferservice.exception.AccountAccessDeniedException;
-import com.transferapp.transferservice.exception.AccountNotFoundException;
-import com.transferapp.transferservice.exception.CurrencyMismatchException;
-import com.transferapp.transferservice.exception.SelfTransferException;
+import com.transferapp.transferservice.exception.*;
 import com.transferapp.transferservice.repository.AccountRepository;
 import com.transferapp.transferservice.repository.TransferRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -78,6 +80,74 @@ public class TransferService {
                 transferRepository.save(transfer);
 
         return toResponse(savedTransfer);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<TransferResponse> getTransfers(
+            UUID userId,
+            Pageable pageable
+    ) {
+
+        Pageable historyPageable = PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize()
+        );
+
+        List<Account> accounts =
+                accountRepository.findAllByUserIdOrderByCreatedAtAsc(userId);
+
+        if (accounts.isEmpty()) {
+            return Page.empty(historyPageable);
+        }
+
+        List<UUID> accountIds = new ArrayList<>();
+
+        for (int i = 0; i < accounts.size(); i++) {
+            accountIds.add(accounts.get(i).getId());
+        }
+
+        Page<Transfer> transfers =
+                transferRepository.findAllByAccountIds(
+                        accountIds,
+                        historyPageable
+                );
+
+        return transfers.map(this::toResponse);
+    }
+    @Transactional(readOnly = true)
+    public TransferResponse getTransferById(
+            UUID transferId,
+            UUID userId
+    ) {
+
+        Transfer transfer = transferRepository
+                .findById(transferId)
+                .orElseThrow(() ->
+                        new TransferNotFoundException(
+                                "Transfer not found"
+                        )
+                );
+
+        List<Account> accounts =
+                accountRepository.findAllByUserIdOrderByCreatedAtAsc(userId);
+
+        List<UUID> accountIds = new ArrayList<>();
+
+        for (int i = 0; i < accounts.size(); i++) {
+            accountIds.add(accounts.get(i).getId());
+        }
+
+        boolean hasAccess =
+                accountIds.contains(transfer.getSenderAccountId())
+                        || accountIds.contains(transfer.getReceiverAccountId());
+
+        if (!hasAccess) {
+            throw new TransferAccessDeniedException(
+                    "You do not have access to this transfer"
+            );
+        }
+
+        return toResponse(transfer);
     }
 
     private UUID findReceiverAccountId(String accountNumber) {
