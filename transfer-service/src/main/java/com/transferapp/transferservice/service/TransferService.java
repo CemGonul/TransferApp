@@ -3,6 +3,7 @@ package com.transferapp.transferservice.service;
 import com.transferapp.transferservice.dto.CreateTransferRequest;
 import com.transferapp.transferservice.dto.TransferResponse;
 import com.transferapp.transferservice.entity.Account;
+import com.transferapp.transferservice.entity.IdempotencyRequest;
 import com.transferapp.transferservice.entity.Transfer;
 import com.transferapp.transferservice.exception.*;
 import com.transferapp.transferservice.repository.AccountRepository;
@@ -24,9 +25,38 @@ public class TransferService {
 
     private final AccountRepository accountRepository;
     private final TransferRepository transferRepository;
+    private final IdempotencyService idempotencyService;
 
     @Transactional
     public TransferResponse createTransfer(
+            CreateTransferRequest request,
+            UUID authenticatedUserId,
+            String idempotencyKey
+    ) {
+
+        IdempotencyService.IdempotencyDecision idempotencyDecision =
+                idempotencyService.prepare(
+                        request,
+                        authenticatedUserId,
+                        idempotencyKey
+                );
+
+        if (idempotencyDecision.replay()) {
+            return getReplayResponse(idempotencyDecision.request());
+        }
+
+        Transfer savedTransfer =
+                executeTransfer(request, authenticatedUserId);
+
+        idempotencyService.complete(
+                idempotencyDecision.request(),
+                savedTransfer.getId()
+        );
+
+        return toResponse(savedTransfer);
+    }
+
+    private Transfer executeTransfer(
             CreateTransferRequest request,
             UUID authenticatedUserId
     ) {
@@ -34,7 +64,9 @@ public class TransferService {
         UUID sourceAccountId = request.sourceAccountId();
 
         UUID receiverAccountId =
-                findReceiverAccountId(request.targetAccountNumber());
+                findReceiverAccountId(
+                        request.targetAccountNumber()
+                );
 
         validateDifferentAccountIds(
                 sourceAccountId,
@@ -46,10 +78,11 @@ public class TransferService {
                 receiverAccountId
         );
 
-        Account[] resolvedAccounts = resolveSourceAndReceiver(
-                lockedAccounts,
-                sourceAccountId
-        );
+        Account[] resolvedAccounts =
+                resolveSourceAndReceiver(
+                        lockedAccounts,
+                        sourceAccountId
+                );
 
         Account sourceAccount = resolvedAccounts[0];
         Account receiverAccount = resolvedAccounts[1];
@@ -79,7 +112,23 @@ public class TransferService {
         Transfer savedTransfer =
                 transferRepository.save(transfer);
 
-        return toResponse(savedTransfer);
+        return savedTransfer;
+    }
+
+    private TransferResponse getReplayResponse(
+            IdempotencyRequest idempotencyRequest
+    ) {
+
+        Transfer existingTransfer =
+                transferRepository
+                        .findById(idempotencyRequest.getTransferId())
+                        .orElseThrow(() ->
+                                new IllegalStateException(
+                                        "Transfer linked to idempotency request was not found"
+                                )
+                        );
+
+        return toResponse(existingTransfer);
     }
 
     @Transactional(readOnly = true)

@@ -15,19 +15,7 @@ import java.util.UUID;
 
 
 @Entity
-@Table(
-        name="accounts",
-        uniqueConstraints = {
-                @UniqueConstraint(
-                        name="uk_account_number",
-                        columnNames = "account_number"
-                ),
-                @UniqueConstraint(
-                        name="uk_user_currency",
-                        columnNames = {"user_id","currency"}
-                )
-        }
-)
+@Table(name="accounts")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Account {

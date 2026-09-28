@@ -5,6 +5,8 @@ import com.transferapp.transferservice.dto.PagedResponse;
 import com.transferapp.transferservice.dto.TransferResponse;
 import com.transferapp.transferservice.service.TransferService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -27,6 +29,7 @@ public class TransferController {
     @PostMapping
     public ResponseEntity<TransferResponse> createTransfer(
             @AuthenticationPrincipal Jwt jwt,
+            @RequestHeader("Idempotency-Key") @NotBlank @Size(max = 100) String idempotencyKey,
             @Valid @RequestBody CreateTransferRequest request) {
 
         UUID authenticatedUserId =
@@ -35,7 +38,8 @@ public class TransferController {
         TransferResponse response =
                 transferService.createTransfer(
                         request,
-                        authenticatedUserId
+                        authenticatedUserId,
+                        idempotencyKey
                 );
 
         return ResponseEntity

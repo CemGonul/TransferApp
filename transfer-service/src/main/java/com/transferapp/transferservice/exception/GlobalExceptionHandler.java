@@ -237,4 +237,44 @@ public class GlobalExceptionHandler {
                 .status(status)
                 .body(error);
     }
+
+    @ExceptionHandler(IdempotencyKeyReuseException.class)
+    public ResponseEntity<ApiError> handleIdempotencyKeyReuse(
+            IdempotencyKeyReuseException exception,
+            HttpServletRequest request) {
+
+        HttpStatus status = HttpStatus.CONFLICT;
+
+        ApiError error = new ApiError(
+                Instant.now(),
+                status.value(),
+                "IDEMPOTENCY_KEY_REUSE",
+                exception.getMessage(),
+                request.getRequestURI()
+        );
+
+        return ResponseEntity
+                .status(status)
+                .body(error);
+    }
+
+    @ExceptionHandler(IdempotencyRequestInProgressException.class)
+    public ResponseEntity<ApiError> handleIdempotencyRequestInProgress(
+            IdempotencyRequestInProgressException exception,
+            HttpServletRequest request) {
+
+        HttpStatus status = HttpStatus.CONFLICT;
+
+        ApiError error = new ApiError(
+                Instant.now(),
+                status.value(),
+                "IDEMPOTENCY_REQUEST_IN_PROGRESS",
+                exception.getMessage(),
+                request.getRequestURI()
+        );
+
+        return ResponseEntity
+                .status(status)
+                .body(error);
+    }
 }
