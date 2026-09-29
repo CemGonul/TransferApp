@@ -277,4 +277,25 @@ public class GlobalExceptionHandler {
                 .status(status)
                 .body(error);
     }
+
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<ApiError> handleRateLimitExceeded(
+            RateLimitExceededException exception,
+            HttpServletRequest request
+    ) {
+
+        HttpStatus status = HttpStatus.TOO_MANY_REQUESTS;
+
+        ApiError error = new ApiError(
+                Instant.now(),
+                status.value(),
+                "RATE_LIMIT_EXCEEDED",
+                exception.getMessage(),
+                request.getRequestURI()
+        );
+
+        return ResponseEntity
+                .status(status)
+                .body(error);
+    }
 }

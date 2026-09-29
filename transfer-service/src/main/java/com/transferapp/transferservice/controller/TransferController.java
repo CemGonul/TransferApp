@@ -3,6 +3,7 @@ package com.transferapp.transferservice.controller;
 import com.transferapp.transferservice.dto.CreateTransferRequest;
 import com.transferapp.transferservice.dto.PagedResponse;
 import com.transferapp.transferservice.dto.TransferResponse;
+import com.transferapp.transferservice.service.RateLimitService;
 import com.transferapp.transferservice.service.TransferService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -25,6 +26,7 @@ import java.util.UUID;
 public class TransferController {
 
     private final TransferService transferService;
+    private final RateLimitService rateLimitService;
 
     @PostMapping
     public ResponseEntity<TransferResponse> createTransfer(
@@ -34,6 +36,8 @@ public class TransferController {
 
         UUID authenticatedUserId =
                 UUID.fromString(jwt.getSubject());
+
+        rateLimitService.checkTransferLimit(authenticatedUserId);
 
         TransferResponse response =
                 transferService.createTransfer(
