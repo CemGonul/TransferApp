@@ -5,6 +5,7 @@ import com.transferapp.transferservice.dto.TransferResponse;
 import com.transferapp.transferservice.entity.Account;
 import com.transferapp.transferservice.entity.IdempotencyRequest;
 import com.transferapp.transferservice.entity.Transfer;
+import com.transferapp.transferservice.event.TransferEventPublisher;
 import com.transferapp.transferservice.exception.*;
 import com.transferapp.transferservice.repository.AccountRepository;
 import com.transferapp.transferservice.repository.TransferRepository;
@@ -14,6 +15,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.transferapp.transferservice.event.TransferCompletedEvent;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,6 +28,7 @@ public class TransferService {
     private final AccountRepository accountRepository;
     private final TransferRepository transferRepository;
     private final IdempotencyService idempotencyService;
+    private final TransferEventPublisher transferEventPublisher;
 
     @Transactional
     public TransferResponse createTransfer(
@@ -111,6 +114,19 @@ public class TransferService {
 
         Transfer savedTransfer =
                 transferRepository.save(transfer);
+
+        TransferCompletedEvent event =
+                new TransferCompletedEvent(
+                        UUID.randomUUID(),
+                        savedTransfer.getId(),
+                        sourceAccount.getUserId(),
+                        receiverAccount.getUserId(),
+                        savedTransfer.getAmount(),
+                        savedTransfer.getCurrency(),
+                        savedTransfer.getCompletedAt()
+                );
+
+        transferEventPublisher.publishTransferCompleted(event);
 
         return savedTransfer;
     }

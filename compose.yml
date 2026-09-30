@@ -50,6 +50,23 @@ services:
       timeout: 5s
       retries: 10
 
+  notification-db:
+    image: postgres:17-alpine
+    container_name: transferapp-notification-db
+    environment:
+      POSTGRES_DB: ${NOTIFICATION_DB_NAME}
+      POSTGRES_USER: ${NOTIFICATION_DB_USERNAME}
+      POSTGRES_PASSWORD: ${NOTIFICATION_DB_PASSWORD}
+    ports:
+      - "127.0.0.1:5436:5432"
+    volumes:
+      - notification-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   redis:
     image: redis:8.10.1-alpine
     container_name: transferapp-redis
@@ -75,8 +92,10 @@ services:
       retries: 12
       start_period: 20s
 
+
 volumes:
   auth-db-data:
   user-db-data:
   transfer-db-data:
+  notification-db-data:
   redis-data:
