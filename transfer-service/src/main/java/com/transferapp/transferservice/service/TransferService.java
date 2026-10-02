@@ -5,8 +5,8 @@ import com.transferapp.transferservice.dto.TransferResponse;
 import com.transferapp.transferservice.entity.Account;
 import com.transferapp.transferservice.entity.IdempotencyRequest;
 import com.transferapp.transferservice.entity.Transfer;
-import com.transferapp.transferservice.event.TransferEventPublisher;
 import com.transferapp.transferservice.exception.*;
+import com.transferapp.transferservice.outbox.OutboxService;
 import com.transferapp.transferservice.repository.AccountRepository;
 import com.transferapp.transferservice.repository.TransferRepository;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +28,7 @@ public class TransferService {
     private final AccountRepository accountRepository;
     private final TransferRepository transferRepository;
     private final IdempotencyService idempotencyService;
-    private final TransferEventPublisher transferEventPublisher;
+    private final OutboxService outboxService;
 
     @Transactional
     public TransferResponse createTransfer(
@@ -126,7 +126,7 @@ public class TransferService {
                         savedTransfer.getCompletedAt()
                 );
 
-        transferEventPublisher.publishTransferCompleted(event);
+        outboxService.saveTransferCompletedEvent(event);
 
         return savedTransfer;
     }

@@ -3,7 +3,10 @@ package com.transferapp.transferservice.event;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Component;
+
+import java.util.concurrent.CompletableFuture;
 
 import static com.transferapp.transferservice.config.KafkaTopicConfig.TRANSFER_COMPLETED_TOPIC;
 
@@ -14,30 +17,14 @@ public class TransferEventPublisher {
 
     private final KafkaTemplate<String, TransferCompletedEvent> kafkaTemplate;
 
-    public void publishTransferCompleted(TransferCompletedEvent event) {
+    public CompletableFuture<SendResult<String, TransferCompletedEvent>>  publishTransferCompleted(TransferCompletedEvent event) {
 
         String key = event.transferId().toString();
 
-        kafkaTemplate
-                .send(
-                        TRANSFER_COMPLETED_TOPIC,
-                        key,
-                        event)
-                .whenComplete((result, exception) -> {
-
-                    if (exception != null) {
-                        log.error(
-                                "Failed to publish TransferCompletedEvent for transfer {}",
-                                event.transferId(),
-                                exception
-                        );
-                        return;
-                    }
-
-                    log.info(
-                            "Published TransferCompletedEvent for transfer {}",
-                            event.transferId()
-                    );
-                });
+        return kafkaTemplate.send(
+                TRANSFER_COMPLETED_TOPIC,
+                key,
+                event
+        );
     }
 }
