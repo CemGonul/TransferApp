@@ -13,6 +13,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -50,6 +51,20 @@ class UserProfileControllerTest {
     }
 
     @Test
+    void serviceRoleCannotReadOrUpdateUserProfile() throws Exception {
+        mockMvc.perform(get("/users/me")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_SERVICE"))))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(put("/users/me")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_SERVICE")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(userProfileService);
+    }
+
+    @Test
     void getCurrentUserUsesSubjectFromJwt() throws Exception {
         UUID userId = UUID.randomUUID();
         UserProfileResponse response = profileResponse(userId);
@@ -58,7 +73,8 @@ class UserProfileControllerTest {
         mockMvc.perform(get("/users/me")
                         .with(jwt().jwt(token -> token
                                 .subject(userId.toString())
-                                .claim("role", "USER"))))
+                                .claim("role", "USER"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.userId").value(userId.toString()))
                 .andExpect(jsonPath("$.firstName").value("Ali"))
@@ -84,7 +100,8 @@ class UserProfileControllerTest {
         mockMvc.perform(put("/users/me")
                         .with(jwt().jwt(token -> token
                                 .subject(userId.toString())
-                                .claim("role", "USER")))
+                                .claim("role", "USER"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -106,7 +123,8 @@ class UserProfileControllerTest {
         UUID userId = UUID.randomUUID();
 
         mockMvc.perform(put("/users/me")
-                        .with(jwt().jwt(token -> token.subject(userId.toString())))
+                        .with(jwt().jwt(token -> token.subject(userId.toString()))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -127,7 +145,8 @@ class UserProfileControllerTest {
         UUID userId = UUID.randomUUID();
 
         mockMvc.perform(put("/users/me")
-                        .with(jwt().jwt(token -> token.subject(userId.toString())))
+                        .with(jwt().jwt(token -> token.subject(userId.toString()))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{"))
                 .andExpect(status().isBadRequest())
@@ -143,7 +162,8 @@ class UserProfileControllerTest {
                 .thenThrow(new UserProfileNotFoundException("User profile not found: " + userId));
 
         mockMvc.perform(get("/users/me")
-                        .with(jwt().jwt(token -> token.subject(userId.toString()))))
+                        .with(jwt().jwt(token -> token.subject(userId.toString()))
+                                .authorities(new SimpleGrantedAuthority("ROLE_USER"))))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.errorCode").value("USER_PROFILE_NOT_FOUND"))
                 .andExpect(jsonPath("$.path").value("/users/me"));

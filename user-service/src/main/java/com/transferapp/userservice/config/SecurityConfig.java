@@ -22,10 +22,12 @@ public class SecurityConfig {
                 .sessionManagement(session ->session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize->authorize
+                        .requestMatchers("/actuator/health", "/actuator/health/**")
+                        .permitAll()
                         .requestMatchers("/internal/user-profiles/**")
                         .hasRole("SERVICE")
                         .requestMatchers("/users/**")
-                        .authenticated()
+                        .hasRole("USER")
                         .anyRequest()
                         .authenticated())
                 .oauth2ResourceServer(oauth2->oauth2.jwt(jwt -> jwt

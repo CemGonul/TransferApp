@@ -22,7 +22,9 @@ public class SecurityConfig {
                 .sessionManagement(session ->session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize->authorize
-                        .requestMatchers("/accounts/**")
+                        .requestMatchers("/actuator/health", "/actuator/health/**")
+                        .permitAll()
+                        .requestMatchers("/accounts/**", "/transfers/**")
                         .hasRole("USER")
                         .anyRequest()
                         .authenticated())

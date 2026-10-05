@@ -24,7 +24,7 @@ import org.springframework.security.authentication.AbstractAuthenticationToken;
 
 @Configuration
 @RequiredArgsConstructor
-public class SecurityConfig {
+public class  SecurityConfig {
 
     private final UserAuthRepository userAuthRepository;
 
@@ -37,6 +37,7 @@ public class SecurityConfig {
                 .sessionManagement(session ->session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
+                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers(
                                 "/auth/register",
                                 "/auth/login"
@@ -73,7 +74,7 @@ public class SecurityConfig {
                         .username(userAuth.getEmail())
                         .password(userAuth.getHashedPassword())
                         .roles(userAuth.getRole().name())
-                        .disabled(!userAuth.isEnabled())
+                        .disabled(!userAuth.isEnabled() || !userAuth.isRegistrationCompleted())
                         .build())
                 .orElseThrow(()-> new UsernameNotFoundException("User not found"));
 

@@ -4,11 +4,11 @@ package com.transferapp.userservice.service;
 import com.transferapp.userservice.dto.UpdateUserProfileRequest;
 import com.transferapp.userservice.dto.UserProfileResponse;
 import com.transferapp.userservice.entity.UserProfile;
-import com.transferapp.userservice.exception.UserProfileAlreadyExistsException;
 import com.transferapp.userservice.exception.UserProfileNotFoundException;
 import com.transferapp.userservice.repository.UserProfileRepository;
 
 import java.util.Locale;
+import java.time.Instant;
 import java.util.UUID;
 
 import lombok.RequiredArgsConstructor;
@@ -23,12 +23,7 @@ public class UserProfileService {
 
     @Transactional
     public boolean ensureProfileExists(UUID userId){
-        if(userProfileRepository.existsById(userId)){
-            return false;
-        }
-        UserProfile profile=new UserProfile(userId);
-        userProfileRepository.save(profile);
-        return true;
+        return userProfileRepository.insertIfAbsent(userId, Instant.now()) == 1;
 
     }
     @Transactional(readOnly = true)

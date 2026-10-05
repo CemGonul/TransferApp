@@ -7,6 +7,7 @@ import com.transferapp.authservice.entity.UserAuth;
 import com.transferapp.authservice.exception.DuplicateEmailException;
 import com.transferapp.authservice.repository.UserAuthRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -24,26 +25,49 @@ public class UserAuthService {
 
         String normalizedEmail = normalizeEmail(request.email());
 
-        if (userAuthRepository.existsByEmail(normalizedEmail)) {
-            throw new DuplicateEmailException("Email is already registered");
+        UserAuth user = userAuthRepository.findByEmail(normalizedEmail)
+                .map(existing -> getPendingRegistration(existing, request.password()))
+                .orElseGet(() -> createPendingRegistration(normalizedEmail, request.password()));
+
+        userProfileClient.ensureProfileExists(user.getId());
+
+        if (userAuthRepository.completeRegistration(user.getId()) != 1) {
+            throw new IllegalStateException("Registration user was not found");
         }
 
+        return new RegisterResponse(
+                user.getEmail(),
+                "User registered successfully"
+        );
+    }
+
+    private UserAuth createPendingRegistration(String email, String password) {
+
         String hashedPassword =
-                passwordEncoder.encode(request.password());
+                passwordEncoder.encode(password);
 
         UserAuth user = new UserAuth(
-                normalizedEmail,
+                email,
                 hashedPassword
         );
 
-        UserAuth savedUser = userAuthRepository.save(user);
+        try {
+            return userAuthRepository.save(user);
+        } catch (DataIntegrityViolationException exception) {
+            // A concurrent registration may have committed the same email first.
+            UserAuth existing = userAuthRepository.findByEmail(email)
+                    .orElseThrow(() -> exception);
+            return getPendingRegistration(existing, password);
+        }
+    }
 
-        userProfileClient.ensureProfileExists(savedUser.getId());
-
-        return new RegisterResponse(
-                savedUser.getEmail(),
-                "User registered successfully"
-        );
+    private UserAuth getPendingRegistration(UserAuth user, String password) {
+        if (user.isRegistrationCompleted()
+                || !user.isEnabled()
+                || !passwordEncoder.matches(password, user.getHashedPassword())) {
+            throw new DuplicateEmailException("Email is already registered");
+        }
+        return user;
     }
 
     private String normalizeEmail(String email) {

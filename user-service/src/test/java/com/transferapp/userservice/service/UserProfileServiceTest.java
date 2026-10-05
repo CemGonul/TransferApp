@@ -8,7 +8,6 @@ import com.transferapp.userservice.repository.UserProfileRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -19,11 +18,11 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -44,32 +43,18 @@ class UserProfileServiceTest {
     @Test
     void ensureProfileExistsCreatesIncompleteProfile() {
         UUID userId = UUID.randomUUID();
-        when(userProfileRepository.existsById(userId)).thenReturn(false);
+        when(userProfileRepository.insertIfAbsent(eq(userId), any(Instant.class))).thenReturn(1);
 
         boolean created = userProfileService.ensureProfileExists(userId);
 
-        ArgumentCaptor<UserProfile> profileCaptor =
-                ArgumentCaptor.forClass(UserProfile.class);
-        verify(userProfileRepository).save(profileCaptor.capture());
-        UserProfile savedProfile = profileCaptor.getValue();
-
-        assertAll(
-                () -> assertTrue(created),
-                () -> assertEquals(userId, savedProfile.getUserId()),
-                () -> assertEquals(ProfileStatus.INCOMPLETE, savedProfile.getStatus()),
-                () -> assertNull(savedProfile.getFirstName()),
-                () -> assertNull(savedProfile.getLastName()),
-                () -> assertNull(savedProfile.getPhoneNumber()),
-                () -> assertNull(savedProfile.getCountryCode()),
-                () -> assertNotNull(savedProfile.getCreatedAt()),
-                () -> assertEquals(savedProfile.getCreatedAt(), savedProfile.getUpdatedAt())
-        );
+        assertTrue(created);
+        verify(userProfileRepository).insertIfAbsent(eq(userId), any(Instant.class));
     }
 
     @Test
     void ensureProfileExistsReturnsFalseWithoutSavingWhenProfileExists() {
         UUID userId = UUID.randomUUID();
-        when(userProfileRepository.existsById(userId)).thenReturn(true);
+        when(userProfileRepository.insertIfAbsent(eq(userId), any(Instant.class))).thenReturn(0);
 
         boolean created = userProfileService.ensureProfileExists(userId);
 

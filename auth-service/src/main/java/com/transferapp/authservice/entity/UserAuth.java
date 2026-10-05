@@ -32,6 +32,9 @@ public class UserAuth {
     @Column(nullable = false)
     private boolean enabled;
 
+    @Column(nullable = false)
+    private boolean registrationCompleted;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 

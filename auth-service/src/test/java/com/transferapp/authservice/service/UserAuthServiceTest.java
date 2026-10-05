@@ -19,6 +19,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.UUID;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -61,7 +62,8 @@ class UserAuthServiceTest {
                 "strongPassword12"
         );
         UUID userId = UUID.randomUUID();
-        when(userAuthRepository.existsByEmail("user@example.com")).thenReturn(false);
+        when(userAuthRepository.findByEmail("user@example.com")).thenReturn(Optional.empty());
+        when(userAuthRepository.completeRegistration(userId)).thenReturn(1);
         when(userAuthRepository.save(any(UserAuth.class)))
                 .thenAnswer(invocation -> {
                     UserAuth savedUser = invocation.getArgument(0);
@@ -86,6 +88,7 @@ class UserAuthServiceTest {
                 () -> assertEquals("User registered successfully", response.message())
         );
         verify(userProfileClient).ensureProfileExists(userId);
+        verify(userAuthRepository).completeRegistration(userId);
     }
 
     @Test
@@ -94,7 +97,10 @@ class UserAuthServiceTest {
                 "Existing@Example.com",
                 "strongPassword12"
         );
-        when(userAuthRepository.existsByEmail("existing@example.com")).thenReturn(true);
+        UserAuth existing = new UserAuth("existing@example.com", "hash");
+        ReflectionTestUtils.setField(existing, "registrationCompleted", true);
+        when(userAuthRepository.findByEmail("existing@example.com"))
+                .thenReturn(Optional.of(existing));
 
         DuplicateEmailException exception = assertThrows(
                 DuplicateEmailException.class,
@@ -112,7 +118,7 @@ class UserAuthServiceTest {
                 "user@example.com",
                 "strongPassword12"
         );
-        when(userAuthRepository.existsByEmail("user@example.com")).thenReturn(false);
+        when(userAuthRepository.findByEmail("user@example.com")).thenReturn(Optional.empty());
         when(userAuthRepository.save(any(UserAuth.class)))
                 .thenThrow(new DataIntegrityViolationException("Database constraint failed"));
 
@@ -130,7 +136,7 @@ class UserAuthServiceTest {
                 "strongPassword12"
         );
         UUID userId = UUID.randomUUID();
-        when(userAuthRepository.existsByEmail("user@example.com")).thenReturn(false);
+        when(userAuthRepository.findByEmail("user@example.com")).thenReturn(Optional.empty());
         when(userAuthRepository.save(any(UserAuth.class)))
                 .thenAnswer(invocation -> {
                     UserAuth savedUser = invocation.getArgument(0);
@@ -151,5 +157,53 @@ class UserAuthServiceTest {
         assertEquals(failure, thrown);
         verify(userAuthRepository).save(any(UserAuth.class));
         verify(userProfileClient).ensureProfileExists(userId);
+        verify(userAuthRepository, never()).completeRegistration(userId);
+    }
+
+    @Test
+    void retryResumesPendingRegistrationWithSameIdAndPasswordHash() {
+        UUID userId = UUID.randomUUID();
+        UserAuth pending = new UserAuth("user@example.com", passwordEncoder.encode("strongPassword12"));
+        ReflectionTestUtils.setField(pending, "id", userId);
+        when(userAuthRepository.findByEmail("user@example.com"))
+                .thenReturn(Optional.of(pending));
+        when(userAuthRepository.completeRegistration(userId)).thenReturn(1);
+
+        userAuthService.register(new RegisterRequest(" USER@Example.com ", "strongPassword12"));
+
+        verify(userAuthRepository, never()).save(any(UserAuth.class));
+        verify(userProfileClient).ensureProfileExists(userId);
+        verify(userAuthRepository).completeRegistration(userId);
+    }
+
+    @Test
+    void rejectsRetryWithDifferentPasswordWithoutProvisioningProfile() {
+        UserAuth pending = new UserAuth("user@example.com", passwordEncoder.encode("originalPassword12"));
+        when(userAuthRepository.findByEmail("user@example.com"))
+                .thenReturn(Optional.of(pending));
+
+        assertThrows(DuplicateEmailException.class, () ->
+                userAuthService.register(new RegisterRequest("user@example.com", "differentPassword12")));
+
+        verifyNoInteractions(userProfileClient);
+        verify(userAuthRepository, never()).save(any(UserAuth.class));
+        verify(userAuthRepository, never()).completeRegistration(any(UUID.class));
+    }
+
+    @Test
+    void resumesRegistrationWhenConcurrentInsertWinsTheEmailConstraint() {
+        UUID userId = UUID.randomUUID();
+        UserAuth pending = new UserAuth("user@example.com", passwordEncoder.encode("strongPassword12"));
+        ReflectionTestUtils.setField(pending, "id", userId);
+        when(userAuthRepository.findByEmail("user@example.com"))
+                .thenReturn(Optional.empty(), Optional.of(pending));
+        when(userAuthRepository.save(any(UserAuth.class)))
+                .thenThrow(new DataIntegrityViolationException("Duplicate email"));
+        when(userAuthRepository.completeRegistration(userId)).thenReturn(1);
+
+        userAuthService.register(new RegisterRequest("user@example.com", "strongPassword12"));
+
+        verify(userProfileClient).ensureProfileExists(userId);
+        verify(userAuthRepository).completeRegistration(userId);
     }
 }
