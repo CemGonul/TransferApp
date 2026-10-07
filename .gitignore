@@ -1,4 +1,6 @@
 .env
+**/private-key.pem
+**/public-key.pem
 
 **/target/
 **/.idea/
